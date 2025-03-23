@@ -1,66 +1,68 @@
 import requests
 import time
+from itertools import product
+import string
 
-# API Endpoint
-API_URL = "http://35.200.185.69:8000/v3/autocomplete?query={}"
+# API configuration
+base_url = "http://35.200.185.69:8000/v3/autocomplete"
+unique_names = set()
+lowercase_letters = string.ascii_lowercase
+char_list = list(lowercase_letters)  + [str(x) for x in range(10)] + ['+', '-', ' ', '.']
 
-# Set to store discovered names
-discovered_names = set()
+# Global counter
+request_count = 0
 
-# Counter for API requests
-request_count = 0  
+# Function to query API with retry mechanism for 429 errors
+def query_api(query):
+    global request_count  
+    max_retries = 5  # Maximum retries for 429 errors
+    delay = 2  # Initial delay in seconds
 
-# Function to make requests with exponential backoff
-def fetch_names(query, retries=3, delay=2):
-    global request_count  # Track number of requests
-    for attempt in range(retries):
+    for attempt in range(max_retries):
         try:
-            response = requests.get(API_URL.format(query))
-            request_count += 1  # Increment request count
+            print(f"Querying API with: {query}")
+            response = requests.get(f"{base_url}?query={query}")
+            request_count += 1  
 
-            # Rate limit handling
             if response.status_code == 429:
-                wait_time = delay * (2 ** attempt)  # Exponential backoff
-                print(f"Rate limit exceeded. Sleeping for {wait_time}s...")
-                time.sleep(wait_time)
+                print(f"Rate limit hit. Retrying after {delay}s...")
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
                 continue
 
-            # Extract JSON response
-            if response.status_code == 200:
-                return response.json().get("results", [])
+            response.raise_for_status()  
+            data = response.json()
+            
+            for name in data.get("results", []):
+                unique_names.add(name)
+            
+            return  # Exit after successful request
+        
+        except requests.exceptions.HTTPError as err:
+            print(f"HTTP Error for query '{query}': {err}")
+            break
+        except requests.exceptions.RequestException as err:
+            print(f"Request failed for query '{query}': {err}")
+            time.sleep(2)  
 
-        except requests.RequestException as e:
-            print(f"Error fetching {query}: {e}")
-            time.sleep(1)  # Short delay before retrying
+# Function to generate queries
+def generate_queries():
+    for length in range(1, 3):  
+        for chars in product(char_list, repeat=length):
+            yield "".join(chars)
 
-    return []  # Return empty if all retries fail
+# Main script
+print("Starting the script...")
+for query in generate_queries():
+    query_api(query)
+    time.sleep(0.2)  # Increase delay to prevent 429 errors
 
-# Function to recursively explore names
-def extract_all_names():
-    global request_count
-    all_chars = list("abcdefghijklmnopqrstuvwxyz0123456789-+.")  # Start with a-z, 0-9 or special characters
-    queue = all_chars[:]  # Initialize queue with base characters
+# Save results
+with open("names.txt", "w") as file:
+    for name in unique_names:
+        file.write(f"{name}\n")
 
-    while queue:
-        prefix = queue.pop(0)  # Get next prefix to explore
-        names = fetch_names(prefix)
-
-        for name in names:
-            if name not in discovered_names:
-                discovered_names.add(name)
-                if len(name) < 10:  # Limit expansion to avoid excessive queries
-                    queue.append(name)  
-
-        print(f"Checked: {prefix} | Found: {len(names)} new names | Total: {len(discovered_names)} | Requests: {request_count}")
-        time.sleep(0.5)  # Respect API limits
-
-# Run the extraction process
-extract_all_names()
-
-# Save results to a file
-with open("collected_names.txt", "w") as f:
-    for name in sorted(discovered_names):
-        f.write(name + "\n")
-
-print(f"Extraction complete! {len(discovered_names)} names saved to collected_names.txt.")
-print(f"Total API requests made: {request_count}")
+print(f"Total unique names: {len(unique_names)}")
+print(f"Total Requests Made: {request_count}")
+print(f"Saved {len(unique_names)} names to names.txt")
+print("Script completed.")

@@ -60,3 +60,5 @@ python script.py
 - Use caching to avoid redundant queries.
 - Extend query length dynamically based on response patterns.
 
+# Author
+**Harish Nandre**

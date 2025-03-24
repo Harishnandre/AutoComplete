@@ -46,11 +46,11 @@ python script.py
 
 ## Results
 # For `http://35.200.185.69:8000/v1/autocomplete`
-- **Total requests made:** 
-- **Total unique names extracted:** 
+- **Total requests made:** `718`
+- **Total unique names extracted:** `6720`
 # For `http://35.200.185.69:8000/v2/autocomplete`
-- **Total requests made:**
-- **Total unique names extracted:**
+- **Total requests made:** `1435`
+- **Total unique names extracted:** `7705`
 # For `http://35.200.185.69:8000/v3/autocomplete`
 - **Total requests made:** `1714`
 - **Total unique names extracted:** `7729`
